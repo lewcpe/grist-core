@@ -5,7 +5,7 @@ import { AssistantProvider } from "app/common/Assistant";
 import {
   getProviderFromHostname,
 } from "app/server/lib/Assistant";
-import { OptDocSession, makeExceptionalDocSession } from "app/server/lib/DocSession";
+import { makeExceptionalDocSession, OptDocSession } from "app/server/lib/DocSession";
 import {
   AssistanceDoc,
   AssistantV2,
@@ -13,6 +13,7 @@ import {
 } from "app/server/lib/IAssistant";
 import log from "app/server/lib/log";
 import { agents } from "app/server/lib/ProxyAgent";
+
 import fetch from "node-fetch";
 
 const TOOLS_DEFINITION = [
@@ -20,14 +21,16 @@ const TOOLS_DEFINITION = [
     type: "function" as const,
     function: {
       name: "get_schema",
-      description: "Retrieve the current database schema, including all tables, columns (ID, Grist type, display label, and formula), and the current document access rules."
-    }
+      description: "Retrieve the current database schema, including all tables, " +
+        "columns (ID, Grist type, display label, and formula), and the current document access rules.",
+    },
   },
   {
     type: "function" as const,
     function: {
       name: "create_table",
-      description: "Create a new table with the given table ID and columns. Automatically creates a page/view for this table so it appears in the UI.",
+      description: "Create a new table with the given table ID and columns. " +
+        "Automatically creates a page/view for this table so it appears in the UI.",
       parameters: {
         type: "object",
         properties: {
@@ -38,16 +41,19 @@ const TOOLS_DEFINITION = [
               type: "object",
               properties: {
                 id: { type: "string", description: "Column ID (e.g. 'First_Name')" },
-                type: { type: "string", description: "Grist type: 'Text', 'Numeric', 'Int', 'Bool', 'Date', 'DateTime', 'Choice'" },
-                label: { type: "string", description: "Display label for the column (optional)" }
+                type: {
+                  type: "string",
+                  description: "Grist type: 'Text', 'Numeric', 'Int', 'Bool', 'Date', 'DateTime', 'Choice'",
+                },
+                label: { type: "string", description: "Display label for the column (optional)" },
               },
-              required: ["id", "type"]
-            }
-          }
+              required: ["id", "type"],
+            },
+          },
         },
-        required: ["table_id", "columns"]
-      }
-    }
+        required: ["table_id", "columns"],
+      },
+    },
   },
   {
     type: "function" as const,
@@ -64,16 +70,19 @@ const TOOLS_DEFINITION = [
               type: "object",
               properties: {
                 id: { type: "string", description: "Column ID (e.g. 'Age')" },
-                type: { type: "string", description: "Grist type: 'Text', 'Numeric', 'Int', 'Bool', 'Date', 'DateTime', 'Choice'" },
-                label: { type: "string", description: "Display label (optional)" }
+                type: {
+                  type: "string",
+                  description: "Grist type: 'Text', 'Numeric', 'Int', 'Bool', 'Date', 'DateTime', 'Choice'",
+                },
+                label: { type: "string", description: "Display label (optional)" },
               },
-              required: ["id", "type"]
-            }
-          }
+              required: ["id", "type"],
+            },
+          },
         },
-        required: ["table_id", "columns"]
-      }
-    }
+        required: ["table_id", "columns"],
+      },
+    },
   },
   {
     type: "function" as const,
@@ -88,13 +97,13 @@ const TOOLS_DEFINITION = [
             type: "array",
             items: {
               type: "object",
-              description: "Key-value pairs matching column IDs and their values"
-            }
-          }
+              description: "Key-value pairs matching column IDs and their values",
+            },
+          },
         },
-        required: ["table_id", "records"]
-      }
-    }
+        required: ["table_id", "records"],
+      },
+    },
   },
   {
     type: "function" as const,
@@ -111,15 +120,15 @@ const TOOLS_DEFINITION = [
               type: "object",
               properties: {
                 id: { type: "integer", description: "The row ID of the record to update" },
-                fields: { type: "object", description: "Fields to update and their values" }
+                fields: { type: "object", description: "Fields to update and their values" },
               },
-              required: ["id", "fields"]
-            }
-          }
+              required: ["id", "fields"],
+            },
+          },
         },
-        required: ["table_id", "records"]
-      }
-    }
+        required: ["table_id", "records"],
+      },
+    },
   },
   {
     type: "function" as const,
@@ -132,12 +141,12 @@ const TOOLS_DEFINITION = [
           table_id: { type: "string", description: "The ID of the table" },
           record_ids: {
             type: "array",
-            items: { type: "integer" }
-          }
+            items: { type: "integer" },
+          },
         },
-        required: ["table_id", "record_ids"]
-      }
-    }
+        required: ["table_id", "record_ids"],
+      },
+    },
   },
   {
     type: "function" as const,
@@ -157,13 +166,13 @@ const TOOLS_DEFINITION = [
               fontBold: { type: "boolean" },
               fontItalic: { type: "boolean" },
               fontUnderline: { type: "boolean" },
-              alignment: { type: "string", enum: ["left", "center", "right"] }
-            }
-          }
+              alignment: { type: "string", enum: ["left", "center", "right"] },
+            },
+          },
         },
-        required: ["table_id", "col_id", "style"]
-      }
-    }
+        required: ["table_id", "col_id", "style"],
+      },
+    },
   },
   {
     type: "function" as const,
@@ -175,11 +184,11 @@ const TOOLS_DEFINITION = [
         properties: {
           table_id: { type: "string", description: "The ID of the table" },
           col_id: { type: "string", description: "The column ID to set formula on" },
-          formula: { type: "string", description: "The Python formula string (e.g. '$Price * $Quantity')" }
+          formula: { type: "string", description: "The Python formula string (e.g. '$Price * $Quantity')" },
         },
-        required: ["table_id", "col_id", "formula"]
-      }
-    }
+        required: ["table_id", "col_id", "formula"],
+      },
+    },
   },
   {
     type: "function" as const,
@@ -191,13 +200,13 @@ const TOOLS_DEFINITION = [
         properties: {
           actions: {
             type: "array",
-            items: { type: "array", description: "A Grist action tuple" }
-          }
+            items: { type: "array", description: "A Grist action tuple" },
+          },
         },
-        required: ["actions"]
-      }
-    }
-  }
+        required: ["actions"],
+      },
+    },
+  },
 ];
 
 export class OpenAIAssistantV2 implements AssistantV2 {
@@ -208,6 +217,7 @@ export class OpenAIAssistantV2 implements AssistantV2 {
   private _endpoint =
     this._options.completionEndpoint ??
     "https://api.openai.com/v1/chat/completions";
+
   private _model = this._options.model || OpenAIAssistantV2.DEFAULT_MODEL;
 
   public constructor(private _options: AssistantV2Options) {}
@@ -223,7 +233,7 @@ export class OpenAIAssistantV2 implements AssistantV2 {
   public async getAssistance(
     optSession: OptDocSession,
     doc: AssistanceDoc,
-    request: any
+    request: any,
   ): Promise<AssistanceResponseV2> {
     const messages: any[] = [...(request.state?.messages || [])];
     const userText = request.text;
@@ -259,21 +269,21 @@ Capabilities & How Grist Works:
 Before answering any questions about the database structure, tables, columns, or rules, or before performing modifications on existing tables, ALWAYS call get_schema first to see the current state.`;
 
       // If we are in the context of the formula editor, append formula context
-      if (request.context && request.context.tableId && request.context.colId) {
+      if (request.context?.tableId && request.context.colId) {
         systemPrompt += `\n\nCURRENT CONTEXT: You are currently helping write a Python formula for the column '${request.context.colId}' in table '${request.context.tableId}'.
 Your response should focus on generating the correct Python formula. Explain it clearly and use the set_column_formula tool if the user requests applying it, or explain the formula body.`;
       }
 
       messages.unshift({
         role: "system",
-        content: systemPrompt
+        content: systemPrompt,
       });
     }
 
     if (userText) {
       messages.push({
         role: "user",
-        content: userText
+        content: userText,
       });
     }
 
@@ -288,7 +298,7 @@ Your response should focus on generating the correct Python formula. Explain it 
         messages,
         temperature: 0,
         tools: TOOLS_DEFINITION,
-        tool_choice: "auto"
+        tool_choice: "auto",
       };
 
       const res = await fetch(endpoint, {
@@ -296,12 +306,12 @@ Your response should focus on generating the correct Python formula. Explain it 
         headers: {
           ...(apiKey ? {
             "Authorization": `Bearer ${apiKey}`,
-            "api-key": apiKey
+            "api-key": apiKey,
           } : {}),
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
-        ...(agents.trusted ? { agent: agents.trusted } : {})
+        ...(agents.trusted ? { agent: agents.trusted } : {}),
       });
 
       if (res.status !== 200) {
@@ -363,7 +373,7 @@ Your response should focus on generating the correct Python formula. Explain it 
             role: "tool",
             tool_call_id: toolCall.id,
             name: name,
-            content: JSON.stringify(toolResult)
+            content: JSON.stringify(toolResult),
           });
         }
       } else {
@@ -374,7 +384,7 @@ Your response should focus on generating the correct Python formula. Explain it 
 
     return {
       reply,
-      state: { messages }
+      state: { messages },
     };
   }
 }
@@ -382,7 +392,7 @@ Your response should focus on generating the correct Python formula. Explain it 
 async function fetchMetadata(doc: AssistanceDoc, tableId: string) {
   try {
     const res = await doc.fetchTable(makeExceptionalDocSession("system"), tableId);
-    const [_, __, rowIds, colValues] = res.tableData;
+    const [, , rowIds, colValues] = res.tableData;
     const records: any[] = [];
     for (let i = 0; i < rowIds.length; i++) {
       const rec: any = { id: rowIds[i] };
@@ -403,25 +413,27 @@ async function handleGetSchema(doc: AssistanceDoc) {
   const views = await fetchMetadata(doc, "_grist_Views");
   const aclRules = await fetchMetadata(doc, "_grist_ACLRules");
 
-  const formattedTables = tables.map(t => {
+  const formattedTables = tables.map((t) => {
     const tableCols = columns
       .filter(c => c.parentId === t.id)
-      .map(c => {
+      .map((c) => {
         let widgetOptions: any = {};
         try {
           widgetOptions = c.widgetOptions ? JSON.parse(c.widgetOptions) : {};
-        } catch {}
+        } catch (e) {
+          // ignore parsing error
+        }
         return {
           id: c.colId,
           type: c.type,
           label: c.label,
           formula: c.formula || "",
-          widgetOptions
+          widgetOptions,
         };
       });
     return {
       id: t.tableId,
-      columns: tableCols
+      columns: tableCols,
     };
   });
 
@@ -434,8 +446,8 @@ async function handleGetSchema(doc: AssistanceDoc) {
       colIds: r.colIds,
       permissions: r.permissions,
       principals: r.principals,
-      conditions: r.conditions
-    }))
+      conditions: r.conditions,
+    })),
   };
 }
 
@@ -443,11 +455,11 @@ async function handleCreateTable(doc: AssistanceDoc, session: OptDocSession, tab
   const colSpecs = columns.map(c => ({
     id: c.id,
     type: c.type,
-    label: c.label || c.id
+    label: c.label || c.id,
   }));
   const result = await doc.applyUserActions(session, [
     ["AddTable", tableId, colSpecs],
-    ["AddView", tableId, "raw_data", tableId]
+    ["AddView", tableId, "raw_data", tableId],
   ]);
   return { success: true, result };
 }
@@ -457,7 +469,7 @@ async function handleAddColumns(doc: AssistanceDoc, session: OptDocSession, tabl
     "AddColumn",
     tableId,
     c.id,
-    { type: c.type, label: c.label || c.id }
+    { type: c.type, label: c.label || c.id },
   ]);
   const result = await doc.applyUserActions(session, actions);
   return { success: true, result };
@@ -468,7 +480,7 @@ async function handleAddRecords(doc: AssistanceDoc, session: OptDocSession, tabl
     "AddRecord",
     tableId,
     null,
-    r
+    r,
   ]);
   const result = await doc.applyUserActions(session, actions);
   return { success: true, result };
@@ -479,7 +491,7 @@ async function handleUpdateRecords(doc: AssistanceDoc, session: OptDocSession, t
     "UpdateRecord",
     tableId,
     r.id,
-    r.fields
+    r.fields,
   ]);
   const result = await doc.applyUserActions(session, actions);
   return { success: true, result };
@@ -489,24 +501,36 @@ async function handleDeleteRecords(doc: AssistanceDoc, session: OptDocSession, t
   const actions = recordIds.map(id => [
     "RemoveRecord",
     tableId,
-    id
+    id,
   ]);
   const result = await doc.applyUserActions(session, actions);
   return { success: true, result };
 }
 
-async function handleSetColumnFormula(doc: AssistanceDoc, session: OptDocSession, tableId: string, colId: string, formula: string) {
+async function handleSetColumnFormula(
+  doc: AssistanceDoc,
+  session: OptDocSession,
+  tableId: string,
+  colId: string,
+  formula: string,
+) {
   const action = [
     "ModifyColumn",
     tableId,
     colId,
-    { isFormula: true, formula }
+    { isFormula: true, formula },
   ];
   const result = await doc.applyUserActions(session, [action]);
   return { success: true, result };
 }
 
-async function handleSetColumnStyle(doc: AssistanceDoc, session: OptDocSession, tableId: string, colId: string, style: any) {
+async function handleSetColumnStyle(
+  doc: AssistanceDoc,
+  session: OptDocSession,
+  tableId: string,
+  colId: string,
+  style: any,
+) {
   const tables = await fetchMetadata(doc, "_grist_Tables");
   const targetTable = tables.find(t => t.tableId === tableId);
   if (!targetTable) {
@@ -523,19 +547,21 @@ async function handleSetColumnStyle(doc: AssistanceDoc, session: OptDocSession, 
   if (targetCol.widgetOptions) {
     try {
       widgetOptions = JSON.parse(targetCol.widgetOptions);
-    } catch {}
+    } catch (e) {
+      // ignore parsing error
+    }
   }
 
   const mergedStyle = {
     ...widgetOptions,
-    ...style
+    ...style,
   };
 
   const action = [
     "ModifyColumn",
     tableId,
     colId,
-    { widgetOptions: JSON.stringify(mergedStyle) }
+    { widgetOptions: JSON.stringify(mergedStyle) },
   ];
 
   const result = await doc.applyUserActions(session, [action]);

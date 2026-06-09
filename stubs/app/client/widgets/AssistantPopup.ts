@@ -1,20 +1,20 @@
 import { GristDoc } from "app/client/components/GristDoc";
-import { IAssistantPopup } from "app/client/ui/IAssistantPopup";
-import { Assistant, cssAiImage, cssAiMessage, cssAvatar } from "app/client/widgets/Assistant";
 import { ChatHistory } from "app/client/models/ChatHistory";
-import { AssistantState } from "app/common/ActiveDocAPI";
-import { getGristConfig } from "app/common/urlUtils";
+import { IAssistantPopup } from "app/client/ui/IAssistantPopup";
 import {
-  cssPageEntry,
+  cssLinkText,
   cssPageButton,
+  cssPageEntry,
   cssPageIcon,
-  cssLinkText
 } from "app/client/ui/LeftPanelCommon";
+import { primaryButton, textButton } from "app/client/ui2018/buttons";
 import { theme, vars } from "app/client/ui2018/cssVars";
 import { icon } from "app/client/ui2018/icons";
-import { primaryButton, textButton } from "app/client/ui2018/buttons";
+import { Assistant, cssAiImage, cssAiMessage, cssAvatar } from "app/client/widgets/Assistant";
+import { AssistantState } from "app/common/ActiveDocAPI";
+import { getGristConfig } from "app/common/urlUtils";
 
-import { Disposable, dom, DomElementArg, Observable, styled, makeTestId } from "grainjs";
+import { Disposable, dom, DomElementArg, makeTestId, Observable, styled } from "grainjs";
 
 const testId = makeTestId("test-assistant-popup-");
 
@@ -39,16 +39,14 @@ export class AssistantPopup extends Disposable implements IAssistantPopup {
       gristDoc: this._gristDoc,
       onSend: this._sendMessage.bind(this),
       buildIntroMessage: this._buildIntroMessage.bind(this),
-      onEscape: () => this._isOpen.set(false)
+      onEscape: () => this._isOpen.set(false),
     });
 
     this._dom = this._buildDom();
     document.body.appendChild(this._dom);
 
     this.onDispose(() => {
-      if (this._dom && this._dom.parentNode) {
-        this._dom.parentNode.removeChild(this._dom);
-      }
+      this._dom?.parentNode?.removeChild(this._dom);
     });
   }
 
@@ -72,25 +70,25 @@ export class AssistantPopup extends Disposable implements IAssistantPopup {
       cssPopupHeader(
         cssHeaderTitle(
           cssHeaderIcon("Sparks"),
-          "Grist AI Assistant"
+          "Grist AI Assistant",
         ),
         cssHeaderButtons(
           cssSettingsButton(
             icon("Settings"),
             dom.on("click", () => this._showSettings.set(!this._showSettings.get())),
-            testId("settings-toggle")
+            testId("settings-toggle"),
           ),
           cssCloseButton(
             icon("CrossBig"),
             dom.on("click", () => this._isOpen.set(false)),
-            testId("close")
-          )
-        )
+            testId("close"),
+          ),
+        ),
       ),
       cssPopupBodyContainer(
         cssPopupBody(
           dom.show(use => !use(this._showSettings)),
-          this._chat.buildDom()
+          this._chat.buildDom(),
         ),
         cssSettingsPanel(
           dom.show(this._showSettings),
@@ -100,31 +98,31 @@ export class AssistantPopup extends Disposable implements IAssistantPopup {
             cssInput({ type: "password", placeholder: "sk-..." },
               dom.on("change", (e: any) => this._apiKeyInput.set(e.target.value)),
               dom.prop("value", this._apiKeyInput),
-              testId("api-key-input")
-            )
+              testId("api-key-input"),
+            ),
           ),
           cssFormGroup(
             cssLabel("API Base URL (optional)"),
             cssInput({ type: "text", placeholder: "https://api.openai.com/v1" },
               dom.on("change", (e: any) => this._baseUrlInput.set(e.target.value)),
               dom.prop("value", this._baseUrlInput),
-              testId("base-url-input")
-            )
+              testId("base-url-input"),
+            ),
           ),
           cssFormGroup(
             cssLabel("Model"),
             cssInput({ type: "text", placeholder: "gpt-4o" },
               dom.on("change", (e: any) => this._modelInput.set(e.target.value)),
               dom.prop("value", this._modelInput),
-              testId("model-input")
-            )
+              testId("model-input"),
+            ),
           ),
           cssSettingsActions(
             primaryButton("Save Settings", dom.on("click", () => this._saveSettings()), testId("save-settings")),
-            textButton("Cancel", dom.on("click", () => this._showSettings.set(false)))
-          )
-        )
-      )
+            textButton("Cancel", dom.on("click", () => this._showSettings.set(false))),
+          ),
+        ),
+      ),
     );
   }
 
@@ -147,7 +145,7 @@ export class AssistantPopup extends Disposable implements IAssistantPopup {
       state: this._history.get().state,
       model,
       baseUrl,
-      apiKey
+      apiKey,
     } as any);
   }
 
@@ -156,16 +154,19 @@ export class AssistantPopup extends Disposable implements IAssistantPopup {
       cssAvatar(cssAiImage()),
       dom("div",
         cssAiMessageParagraph("Hi, I'm the Grist AI Assistant."),
-        cssAiMessageParagraph("I can help you build tables, format/style columns, write access rules, modify document data, and more!"),
+        cssAiMessageParagraph(
+          "I can help you build tables, format/style columns, " +
+          "write access rules, modify document data, and more!",
+        ),
         cssAiMessageParagraph("Try asking me to:"),
         dom("ul", { style: "padding-left: 20px; margin: 8px 0; font-size: 13px; line-height: 1.5;" },
           dom("li", "Create a table called Tasks with columns Title, Due_Date, and Done"),
           dom("li", "Add some mock tasks about planning a party"),
           dom("li", "Style the column Due_Date to have background color green"),
-          dom("li", "Explain the current access rules")
-        )
+          dom("li", "Explain the current access rules"),
+        ),
       ),
-      ...args
+      ...args,
     );
   }
 }
@@ -190,9 +191,9 @@ export function buildOpenAssistantButton(
       cssLinkText("AI Assistant"),
       dom.on("click", () => {
         (gristDoc as any).openAssistantPopup();
-      })
+      }),
     ),
-    ...args
+    ...args,
   );
 }
 
