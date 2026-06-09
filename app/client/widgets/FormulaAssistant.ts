@@ -45,7 +45,7 @@ export class FormulaAssistant extends Disposable {
     `u:${this._appModel.currentUser?.id ?? 0};formulaAssistantExpanded`, true));
 
   /** Is assistant features are enabled */
-  private _assistantEnabled = getGristConfig().assistant?.version === 1;
+  private _assistantEnabled = getGristConfig().assistant?.version !== undefined;
   /** Preview column ref */
   private _transformColRef: string;
   /** Preview column id */

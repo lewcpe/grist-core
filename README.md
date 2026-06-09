@@ -237,6 +237,26 @@ You can find the available models and their identifiers on the OpenRouter websit
 Note: Make sure not to set the OPENAI_API_KEY variable when using OpenRouter, as this would override the OpenRouter configuration.
 
 
+## AI Assistant (V2) Configuration
+
+Grist contains an expanded AI Assistant (V2) that can help with a wider range of tasks, including building tables and dashboards, formatting and styling columns (text/fill colors, alignments, bold, italic), explaining access rules, modifying data, and writing formulas.
+
+### Dynamic UI Configuration
+You can configure the AI Assistant directly from the chat interface in the web browser. Click the **AI Assistant** button in the left panel under **TOOLS**, then click the **Settings gear** icon in the chat header. You can configure:
+- **OpenAI API Key**: Your personal API Key (e.g., `sk-...`).
+- **API Base URL (Optional)**: Any custom compatible endpoint (e.g., a local Ollama instance at `http://localhost:11434/v1` or a custom gateway).
+- **Model**: The LLM model identifier to use (e.g. `gpt-4o` or `llama3`).
+
+These settings are stored locally in your browser and are passed dynamically with each request.
+
+### Server-wide Configuration via Environment Variables
+Alternatively, you can configure default, server-wide settings using the following environment variables:
+
+- `ASSISTANT_API_KEY` (or `OPENAI_API_KEY`): The API key for the AI service provider.
+- `ASSISTANT_CHAT_COMPLETION_ENDPOINT`: The completion endpoint URL (e.g., `https://api.openai.com/v1/chat/completions` or a local equivalent).
+- `ASSISTANT_MODEL`: The default chat model to use (defaults to `gpt-4o-2024-08-06`).
+
+
 ## Available Docker images
 
 The default Docker image is `gristlabs/grist`. This contains all of

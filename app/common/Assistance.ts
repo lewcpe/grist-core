@@ -48,6 +48,9 @@ interface BaseAssistanceRequest {
   conversationId: string;
   text?: string;
   state?: AssistanceState;
+  model?: string;
+  apiKey?: string;
+  baseUrl?: string;
 }
 
 /**

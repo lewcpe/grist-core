@@ -709,8 +709,8 @@ export class ActiveDoc extends EventEmitter {
     }
 
     let result: AssistanceResponse;
-    if (isAssistantV2(assistant) && isAssistanceRequestV2(params)) {
-      result = await assistant.getAssistance(docSession, this, params);
+    if (isAssistantV2(assistant)) {
+      result = await assistant.getAssistance(docSession, this, params as any);
     } else if (!isAssistantV2(assistant) && !isAssistanceRequestV2(params)) {
       // Same code, different types.
       result = await assistant.getAssistance(docSession, this, params);

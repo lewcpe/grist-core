@@ -174,7 +174,7 @@ export async function runCompletion() {
         `, rec.col_id, rec.table_id);
         formula = colInfo?.formula;
 
-        const result = await assistant!.getAssistance(session, activeDoc, {
+        const result = (await assistant!.getAssistance(session, activeDoc, {
           conversationId: "conversationId",
           context: {
             tableId,
@@ -184,7 +184,7 @@ export async function runCompletion() {
           },
           state: history,
           text: followUp || description,
-        });
+        })) as AssistanceResponseV1;
         if (result.state) {
           history = result.state;
         }

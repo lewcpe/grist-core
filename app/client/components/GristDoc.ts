@@ -839,6 +839,10 @@ export class GristDocImpl extends DisposableWithEvents implements GristDoc {
     return this.docPageModel.currentDocId.get()!;
   }
 
+  public openAssistantPopup() {
+    this._assistantPopup?.open();
+  }
+
   /**
    * Builds the DOM for this GristDoc.
    */

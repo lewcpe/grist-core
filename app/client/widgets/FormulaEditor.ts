@@ -339,7 +339,7 @@ export class FormulaEditor extends NewBaseEditor {
       const withAiButton =
         this._canDetach &&
         !this.isDetached.get() &&
-        getGristConfig().assistant?.version === 1;
+        getGristConfig().assistant?.version !== undefined;
       editor.renderer.emptyMessageNode = cssFormulaPlaceholder(
         !withAiButton ?
           t("Enter formula.") :

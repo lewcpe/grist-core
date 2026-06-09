@@ -43,7 +43,7 @@ describe("OpenAIAssistantV1", function() {
     if (!openAIAssistant) {
       throw new Error("no assistant");
     }
-    assistant = openAIAssistant;
+    assistant = openAIAssistant as AssistantV1;
     session = docTools.createFakeSession();
     doc = await docTools.createDoc("test.grist");
     await doc.applyUserActions(session, [
