@@ -34,6 +34,23 @@ export class AssistantPopup extends Disposable implements IAssistantPopup {
   constructor(gristDoc: GristDoc) {
     super();
     this._gristDoc = gristDoc;
+
+    const storageKey = `grist_assistant_history_${gristDoc.docId()}`;
+    const saved = localStorage.getItem(storageKey);
+    let initialHistory: ChatHistory = { messages: [] };
+    if (saved) {
+      try {
+        initialHistory = JSON.parse(saved);
+      } catch (e) {
+        // ignore parsing errors
+      }
+    }
+    this._history.set(initialHistory);
+
+    this.autoDispose(this._history.addListener((history) => {
+      localStorage.setItem(storageKey, JSON.stringify(history));
+    }));
+
     this._chat = Assistant.create(this, {
       history: this._history,
       gristDoc: this._gristDoc,
@@ -73,6 +90,13 @@ export class AssistantPopup extends Disposable implements IAssistantPopup {
           "Grist AI Assistant",
         ),
         cssHeaderButtons(
+          cssClearButton(
+            icon("Remove"),
+            dom.on("click", () => this._clearHistory()),
+            dom.show(use => use(this._history).messages.length > 0),
+            testId("clear-history"),
+            dom.attr("title", "Clear Chat History"),
+          ),
           cssSettingsButton(
             icon("Settings"),
             dom.on("click", () => this._showSettings.set(!this._showSettings.get())),
@@ -131,6 +155,12 @@ export class AssistantPopup extends Disposable implements IAssistantPopup {
     localStorage.setItem("grist_assistant_base_url", this._baseUrlInput.get());
     localStorage.setItem("grist_assistant_model", this._modelInput.get());
     this._showSettings.set(false);
+  }
+
+  private _clearHistory() {
+    this._chat.clear();
+    const storageKey = `grist_assistant_history_${this._gristDoc.docId()}`;
+    localStorage.removeItem(storageKey);
   }
 
   private async _sendMessage(message: string) {
@@ -259,6 +289,9 @@ const cssSettingsButton = styled("button", `
 `);
 
 const cssCloseButton = styled(cssSettingsButton, `
+`);
+
+const cssClearButton = styled(cssSettingsButton, `
 `);
 
 const cssPopupBodyContainer = styled("div", `

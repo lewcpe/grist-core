@@ -44,4 +44,16 @@ export interface ChatMessage {
    * Only used by version 1 of the AI assistant.
    */
   action?: any;
+  /**
+   * Detailed agentic execution steps for Assistant V2.
+   */
+  agenticLogs?: AgenticLog[];
+}
+
+export interface AgenticLog {
+  toolName: string;
+  arguments: any;
+  success: boolean;
+  error?: string;
+  details?: any;
 }

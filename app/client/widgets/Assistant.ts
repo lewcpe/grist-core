@@ -8,7 +8,7 @@ import { domAsync } from "app/client/lib/domAsync";
 import { makeT } from "app/client/lib/localization";
 import { sessionStorageBoolObs } from "app/client/lib/localStorageObs";
 import { getLoginOrSignupUrl } from "app/client/lib/urlUtils";
-import { ChatHistory, ChatMessage } from "app/client/models/ChatHistory";
+import { AgenticLog, ChatHistory, ChatMessage } from "app/client/models/ChatHistory";
 import { constructUrl, urlState } from "app/client/models/gristUrlState";
 import { showEnterpriseToggle } from "app/client/ui/ActivationPage";
 import { buildCodeHighlighter } from "app/client/ui/CodeHighlight";
@@ -406,12 +406,14 @@ export class Assistant extends Disposable {
     const prettyMessage = state ?
       reply || suggestedFormula || "" :
       suggestedFormula || reply || "";
+    const agenticLogs = state?.messages ? extractAgenticLogs(state.messages) : undefined;
     // Add it to the chat.
     this._conversation.addResponse({
       message: prettyMessage,
       formula: suggestedFormula,
       action: suggestedActions?.[0],
       sender: "ai",
+      agenticLogs,
     });
   }
 
@@ -646,6 +648,8 @@ class AssistantConversation extends Disposable {
                     testId("message"),
                   ),
                 ),
+                entry.agenticLogs && entry.agenticLogs.length > 0 ?
+                  this._renderAgenticLogs(entry.agenticLogs) : null,
                 !this._options.onApplyFormula ?
                   null :
                   cssAiMessageButtonsRow(
@@ -725,6 +729,113 @@ receiving assistance.",
       }),
     );
   }
+
+  private _renderAgenticLogs(logs: AgenticLog[]) {
+    const total = logs.length;
+    const failed = logs.filter(l => !l.success).length;
+    const summaryText = failed > 0 ?
+      t("Executed {{total}} actions ({{failed}} failed)", { total, failed }) :
+      t("Executed {{total}} actions successfully", { total });
+
+    return cssAgenticLogsWrapper(
+      dom("details",
+        dom("summary",
+          cssAgenticLogsSummary(
+            failed > 0 ?
+              icon("Warning", dom.style("background-color", "#d9534f")) :
+              icon("TickSolid", dom.style("background-color", "#2bab6e")),
+            dom("span", summaryText),
+          ),
+        ),
+        cssAgenticLogsDetails(
+          logs.map((log) => {
+            return dom("details",
+              dom("summary",
+                cssAgenticLogItemHeader(
+                  log.success ?
+                    icon("Tick", dom.style("background-color", "#2bab6e")) :
+                    icon("Warning", dom.style("background-color", "#d9534f")),
+                  dom("span", `${log.toolName} (${log.success ? "success" : "failed"})`),
+                ),
+              ),
+              cssAgenticLogItemContent(
+                dom("div", cssLogLabel("Arguments:")),
+                dom("pre", JSON.stringify(log.arguments, null, 2)),
+                log.error ?
+                  dom("div",
+                    dom("div", cssLogLabel("Error:")),
+                    dom("pre", { style: "color: #d9534f;" }, log.error),
+                  ) :
+                  dom("div",
+                    dom("div", cssLogLabel("Result:")),
+                    dom("pre", JSON.stringify(log.details, null, 2)),
+                  ),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+}
+
+function extractAgenticLogs(messages: any[]): AgenticLog[] {
+  const logs: AgenticLog[] = [];
+  let lastUserIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") {
+      lastUserIdx = i;
+      break;
+    }
+  }
+
+  const turnMessages = lastUserIdx >= 0 ? messages.slice(lastUserIdx + 1) : messages;
+
+  for (const msg of turnMessages) {
+    if (msg.role === "assistant" && msg.tool_calls) {
+      for (const tc of msg.tool_calls) {
+        const id = tc.id;
+        const name = tc.name || tc.function?.name;
+        let args: any = null;
+        try {
+          args = tc.function?.arguments ? JSON.parse(tc.function.arguments) : null;
+        } catch (e) {
+          // ignore
+        }
+
+        const toolResp = turnMessages.find(m => m.role === "tool" && m.tool_call_id === id);
+        let success = true;
+        let errorMsg: string | undefined;
+        let details: any = null;
+
+        if (toolResp) {
+          try {
+            details = JSON.parse(toolResp.content);
+            if (details?.error) {
+              success = false;
+              errorMsg = details.error;
+            }
+          } catch (e) {
+            success = false;
+            errorMsg = "Invalid JSON response";
+            details = toolResp.content;
+          }
+        } else {
+          success = false;
+          errorMsg = "No tool execution result received";
+        }
+
+        logs.push({
+          toolName: name,
+          arguments: args,
+          success,
+          error: errorMsg,
+          details,
+        });
+      }
+    }
+  }
+  return logs;
 }
 
 function buildSignupNudge() {
@@ -1085,4 +1196,74 @@ const cssBannerAnchorLink = styled(cssLink, `
   &:hover {
     color: ${colors.light};
   }
+`);
+
+const cssAgenticLogsWrapper = styled("div", `
+  margin-top: 8px;
+  margin-left: 54px;
+  margin-right: 18px;
+  font-size: 12px;
+  border: 1px solid ${theme.formulaAssistantBorder};
+  border-radius: 4px;
+  background-color: ${theme.inputBg};
+  overflow: hidden;
+`);
+
+const cssAgenticLogsSummary = styled("div", `
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+  color: ${theme.inputFg};
+  
+  &:hover {
+    background-color: ${theme.formulaAssistantBorder};
+  }
+  
+  & .icon {
+    width: 14px;
+    height: 14px;
+  }
+`);
+
+const cssAgenticLogsDetails = styled("div", `
+  border-top: 1px solid ${theme.formulaAssistantBorder};
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background-color: ${theme.inputBg};
+`);
+
+const cssAgenticLogItemHeader = styled("div", `
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  cursor: pointer;
+  user-select: none;
+  color: ${theme.inputFg};
+  font-weight: 500;
+  
+  &:hover {
+    background-color: ${theme.formulaAssistantBorder};
+  }
+`);
+
+const cssAgenticLogItemContent = styled("div", `
+  padding: 8px;
+  margin-left: 20px;
+  margin-top: 4px;
+  border-left: 2px solid ${theme.formulaAssistantBorder};
+  background-color: ${theme.inputBg};
+  overflow-x: auto;
+`);
+
+const cssLogLabel = styled("div", `
+  font-weight: bold;
+  margin-bottom: 2px;
+  color: ${theme.inputFg};
 `);
