@@ -240,7 +240,7 @@ export class WidgetFrame extends DisposableWithEvents {
 
     let urlObj: URL;
     try {
-      urlObj = new URL(url);
+      urlObj = new URL(url, window.location.origin);
     } catch (e) {
       console.error(e);
       return null;

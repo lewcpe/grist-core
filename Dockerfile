@@ -135,8 +135,9 @@ COPY --from=builder /grist/sandbox/pyodide /grist/sandbox/pyodide
 
 # Finalize static directory
 RUN \
-  mv /grist/static-built/* /grist/static && \
-  rmdir /grist/static-built
+  cp -r /grist/static-built/. /grist/static/ && \
+  rm -rf /grist/static-built
+
 
 # To ensure non-root users can run grist, 'other' users need read access (and execute on directories)
 # This should be the case by default when copying files in.

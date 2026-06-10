@@ -2561,6 +2561,58 @@ class UserActions(object):
     section = self._docmodel.view_sections.table.get_record(view_section_id)
     self._docmodel.remove([section])
 
+  @useraction
+  def UpdateViewSection(self, view_section_id, fields):
+    """
+    Updates records for viewsection at viewsection_id
+    """
+    return self.UpdateRecord('_grist_Views_section', view_section_id, fields)
+
+  @useraction
+  def RenameView(self, view_id, name):
+    """
+    Renames a view to the specified name.
+    """
+    return self.UpdateRecord('_grist_Views', view_id, {'name': name})
+
+  @useraction
+  def UpdateViewSectionField(self, field_id, fields):
+    """
+    Updates a view section field record.
+    """
+    return self.UpdateRecord('_grist_Views_section_field', field_id, fields)
+
+  @useraction
+  def SetDisplayColumn(self, table_id, field_ref, col_ref, formula=None):
+    """
+    Sets the display column formula for a field or column. Supports both (table_id, field_ref, col_ref, formula)
+    and (table_id, col_id, display_col_id) signatures.
+    """
+    if formula is None:
+      col_id = field_ref
+      display_col_id = col_ref
+      formula_str = display_col_id if display_col_id.startswith('$') else ('$' + display_col_id)
+      col = self._docmodel.get_column_rec(table_id, col_id)
+      return self.SetDisplayFormula(table_id, None, col.id, formula_str)
+    return self.SetDisplayFormula(table_id, field_ref, col_ref, formula)
+
+  @useraction
+  def FetchTable(self, table_id):
+    """
+    Fetches all data in the table, returning a list of dicts.
+    """
+    table = self._engine.tables.get(table_id)
+    if not table:
+      raise ValueError("Table %s not found" % table_id)
+    cols = table.all_columns
+    records = []
+    for row_id in table.row_ids:
+      rec = {'id': row_id}
+      for col_id, col_obj in cols.items():
+        rec[col_id] = col_obj.get_cell_value(row_id)
+      records.append(rec)
+    return records
+
   #--------------------------------------------------------------------------------
   # Methods for creating and maintaining default views. This is a work-in-progress.
   #--------------------------------------------------------------------------------

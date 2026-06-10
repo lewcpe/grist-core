@@ -103,15 +103,12 @@ const SPECIAL_ACTIONS = new Set(["InitNewDoc",
   "MakeImportTransformColumns",
   "FillTransformRuleColIds",
   "TransformAndFinishImport",
-  "AddView",
   "AddHiddenColumn",
   "RespondToRequests",
 ]);
 
 // Odd-ball actions marked as deprecated or which seem unlikely to be used.
-const SURPRISING_ACTIONS = new Set([
-  "RemoveView",
-  "AddViewSection",
+const SURPRISING_ACTIONS = new Set<string>([
 ]);
 
 // Actions we'll allow unconditionally for now.
@@ -172,6 +169,14 @@ const OTHER_RECOGNIZED_ACTIONS = new Set([
   "AddEmptyRule",
   "CreateViewSection",
   "RemoveViewSection",
+  "UpdateViewSection",
+  "AddView",
+  "RemoveView",
+  "AddViewSection",
+  "RenameView",
+  "UpdateViewSectionField",
+  "SetDisplayColumn",
+  "FetchTable",
 ]);
 
 // When an attachment is uploaded, it isn't immediately added to a cell in

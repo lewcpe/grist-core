@@ -377,7 +377,8 @@ class CustomSectionConfigurationConfig extends Disposable {
   private _attachColumnMappingTip(widgetUrl: string | null) {
     switch (widgetUrl) {
       // TODO: come up with a way to attach tips without hardcoding widget URLs.
-      case "https://gristlabs.github.io/grist-widget/calendar/index.html": {
+      case "https://gristlabs.github.io/grist-widget/calendar/index.html":
+      case "/v/latest/calendar/widgets/calendar/index.html": {
         return this._gristDoc.behavioralPromptsManager.attachPopup("calendarConfig", {
           popupOptions: { placement: "left-start" },
         });

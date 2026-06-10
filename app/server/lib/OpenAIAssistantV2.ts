@@ -1,11 +1,10 @@
-import {
-  AssistanceResponseV2,
-} from "app/common/Assistance";
+import { AssistanceResponseV2 } from "app/common/Assistance";
 import { AssistantProvider } from "app/common/Assistant";
+import { getProviderFromHostname } from "app/server/lib/Assistant";
 import {
-  getProviderFromHostname,
-} from "app/server/lib/Assistant";
-import { makeExceptionalDocSession, OptDocSession } from "app/server/lib/DocSession";
+  makeExceptionalDocSession,
+  OptDocSession,
+} from "app/server/lib/DocSession";
 import {
   AssistanceDoc,
   AssistantV2,
@@ -21,7 +20,8 @@ const TOOLS_DEFINITION = [
     type: "function" as const,
     function: {
       name: "get_schema",
-      description: "Retrieve the current database schema, including all tables, " +
+      description:
+        "Retrieve the current database schema, including all tables, " +
         "columns (ID, Grist type, display label, and formula), and the current document access rules.",
     },
   },
@@ -29,23 +29,35 @@ const TOOLS_DEFINITION = [
     type: "function" as const,
     function: {
       name: "create_table",
-      description: "Create a new table with the given table ID and columns. " +
+      description:
+        "Create a new table with the given table ID and columns. " +
         "Automatically creates a page/view for this table so it appears in the UI.",
       parameters: {
         type: "object",
         properties: {
-          table_id: { type: "string", description: "The unique ID of the table to create (e.g. 'Customers')" },
+          table_id: {
+            type: "string",
+            description:
+              "The unique ID of the table to create (e.g. 'Customers')",
+          },
           columns: {
             type: "array",
             items: {
               type: "object",
               properties: {
-                id: { type: "string", description: "Column ID (e.g. 'First_Name')" },
+                id: {
+                  type: "string",
+                  description: "Column ID (e.g. 'First_Name')",
+                },
                 type: {
                   type: "string",
-                  description: "Grist type: 'Text', 'Numeric', 'Int', 'Bool', 'Date', 'DateTime', 'Choice'",
+                  description:
+                    "Grist type: 'Text', 'Numeric', 'Int', 'Bool', 'Date', 'DateTime', 'Choice'",
                 },
-                label: { type: "string", description: "Display label for the column (optional)" },
+                label: {
+                  type: "string",
+                  description: "Display label for the column (optional)",
+                },
               },
               required: ["id", "type"],
             },
@@ -63,7 +75,10 @@ const TOOLS_DEFINITION = [
       parameters: {
         type: "object",
         properties: {
-          table_id: { type: "string", description: "The ID of the table to modify" },
+          table_id: {
+            type: "string",
+            description: "The ID of the table to modify",
+          },
           columns: {
             type: "array",
             items: {
@@ -72,9 +87,13 @@ const TOOLS_DEFINITION = [
                 id: { type: "string", description: "Column ID (e.g. 'Age')" },
                 type: {
                   type: "string",
-                  description: "Grist type: 'Text', 'Numeric', 'Int', 'Bool', 'Date', 'DateTime', 'Choice'",
+                  description:
+                    "Grist type: 'Text', 'Numeric', 'Int', 'Bool', 'Date', 'DateTime', 'Choice'",
                 },
-                label: { type: "string", description: "Display label (optional)" },
+                label: {
+                  type: "string",
+                  description: "Display label (optional)",
+                },
               },
               required: ["id", "type"],
             },
@@ -97,7 +116,8 @@ const TOOLS_DEFINITION = [
             type: "array",
             items: {
               type: "object",
-              description: "Key-value pairs matching column IDs and their values",
+              description:
+                "Key-value pairs matching column IDs and their values",
             },
           },
         },
@@ -109,7 +129,8 @@ const TOOLS_DEFINITION = [
     type: "function" as const,
     function: {
       name: "update_records",
-      description: "Update fields for specific records in a table by their row IDs.",
+      description:
+        "Update fields for specific records in a table by their row IDs.",
       parameters: {
         type: "object",
         properties: {
@@ -119,8 +140,14 @@ const TOOLS_DEFINITION = [
             items: {
               type: "object",
               properties: {
-                id: { type: "integer", description: "The row ID of the record to update" },
-                fields: { type: "object", description: "Fields to update and their values" },
+                id: {
+                  type: "integer",
+                  description: "The row ID of the record to update",
+                },
+                fields: {
+                  type: "object",
+                  description: "Fields to update and their values",
+                },
               },
               required: ["id", "fields"],
             },
@@ -152,7 +179,8 @@ const TOOLS_DEFINITION = [
     type: "function" as const,
     function: {
       name: "set_column_style",
-      description: "Modify font/color/alignment style of a column. Can set cell text/background color and alignment.",
+      description:
+        "Modify font/color/alignment style of a column. Can set cell text/background color and alignment.",
       parameters: {
         type: "object",
         properties: {
@@ -161,8 +189,15 @@ const TOOLS_DEFINITION = [
           style: {
             type: "object",
             properties: {
-              textColor: { type: "string", description: "Hex color code for text (e.g. '#FF0000')" },
-              fillColor: { type: "string", description: "Hex color code for cell background (e.g. '#EAF2F8')" },
+              textColor: {
+                type: "string",
+                description: "Hex color code for text (e.g. '#FF0000')",
+              },
+              fillColor: {
+                type: "string",
+                description:
+                  "Hex color code for cell background (e.g. '#EAF2F8')",
+              },
               fontBold: { type: "boolean" },
               fontItalic: { type: "boolean" },
               fontUnderline: { type: "boolean" },
@@ -183,8 +218,15 @@ const TOOLS_DEFINITION = [
         type: "object",
         properties: {
           table_id: { type: "string", description: "The ID of the table" },
-          col_id: { type: "string", description: "The column ID to set formula on" },
-          formula: { type: "string", description: "The Python formula string (e.g. '$Price * $Quantity')" },
+          col_id: {
+            type: "string",
+            description: "The column ID to set formula on",
+          },
+          formula: {
+            type: "string",
+            description:
+              "The Python formula string (e.g. '$Price * $Quantity')",
+          },
         },
         required: ["table_id", "col_id", "formula"],
       },
@@ -193,8 +235,46 @@ const TOOLS_DEFINITION = [
   {
     type: "function" as const,
     function: {
+      name: "create_view",
+      description:
+        "Create a new page/view with a specific widget type for an existing table, " +
+        "optionally mapping columns (e.g. for a Calendar widget).",
+      parameters: {
+        type: "object",
+        properties: {
+          table_id: {
+            type: "string",
+            description: "The ID of the table (e.g. 'Meetings')",
+          },
+          view_name: {
+            type: "string",
+            description:
+              "The name of the new view/page to create (e.g. 'Meeting Calendar')",
+          },
+          widget_type: {
+            type: "string",
+            description:
+              "The type of widget to create. Supported standard types: 'record' (Grid), " +
+              "'detail' (Card), 'single' (Card List), 'chart'. Supported custom types: 'custom.calendar' (Calendar).",
+          },
+          columns_mapping: {
+            type: "object",
+            description:
+              "Optional mapping of widget keys to column IDs (e.g. " +
+              "{'startDate': 'Start_Date', 'title': 'Subject'} for Calendar widget).",
+            additionalProperties: { type: "string" },
+          },
+        },
+        required: ["table_id", "view_name", "widget_type"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
       name: "apply_actions",
-      description: "Apply arbitrary Grist user actions. Use this only if other specialized tools do not fit the task.",
+      description:
+        "Apply arbitrary Grist user actions. Use this only if other specialized tools do not fit the task.",
       parameters: {
         type: "object",
         properties: {
@@ -244,7 +324,10 @@ export class OpenAIAssistantV2 implements AssistantV2 {
     let endpoint = this._endpoint;
     if (request.baseUrl) {
       endpoint = request.baseUrl;
-      if (!endpoint.endsWith("/chat/completions") && !endpoint.endsWith("/completions")) {
+      if (
+        !endpoint.endsWith("/chat/completions") &&
+        !endpoint.endsWith("/completions")
+      ) {
         endpoint = endpoint.replace(/\/+$/, "") + "/chat/completions";
       }
     }
@@ -265,6 +348,8 @@ Capabilities & How Grist Works:
 3. Access Rules: You can inspect access rules via get_schema. Explain them clearly if asked.
 4. Tables: You can create a new table with columns using create_table. It will automatically add a view page for it.
 5. Modifying Data: You can add records, update records, and delete records in a table using their respective tools.
+6. Views & Widgets: To create a page/view or configure widgets (like adding a Calendar widget to a table,
+   mapping its columns, etc.), ALWAYS use the specialized 'create_view' tool.
 
 Before answering any questions about the database structure, tables, columns, or rules, or before performing modifications on existing tables, ALWAYS call get_schema first to see the current state.`;
 
@@ -304,10 +389,12 @@ Your response should focus on generating the correct Python formula. Explain it 
       const res = await fetch(endpoint, {
         method: "POST",
         headers: {
-          ...(apiKey ? {
-            "Authorization": `Bearer ${apiKey}`,
-            "api-key": apiKey,
-          } : {}),
+          ...(apiKey ?
+            {
+              "Authorization": `Bearer ${apiKey}`,
+              "api-key": apiKey,
+            } :
+            {}),
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
@@ -316,7 +403,9 @@ Your response should focus on generating the correct Python formula. Explain it 
 
       if (res.status !== 200) {
         const errorText = await res.text();
-        throw new Error(`OpenAI API returned status ${res.status}: ${errorText}`);
+        throw new Error(
+          `OpenAI API returned status ${res.status}: ${errorText}`,
+        );
       }
 
       const responseData = await res.json();
@@ -329,14 +418,19 @@ Your response should focus on generating the correct Python formula. Explain it 
         reply = assistantMessage.content;
       }
 
-      if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
+      if (
+        assistantMessage.tool_calls &&
+        assistantMessage.tool_calls.length > 0
+      ) {
         for (const toolCall of assistantMessage.tool_calls) {
           const name = toolCall.function.name;
           let args: any = {};
           try {
             args = JSON.parse(toolCall.function.arguments);
           } catch (e) {
-            log.error(`Failed to parse tool call arguments: ${toolCall.function.arguments}`);
+            log.error(
+              `Failed to parse tool call arguments: ${toolCall.function.arguments}`,
+            );
           }
 
           let toolResult: any;
@@ -346,19 +440,65 @@ Your response should focus on generating the correct Python formula. Explain it 
             if (name === "get_schema") {
               toolResult = await handleGetSchema(doc);
             } else if (name === "create_table") {
-              toolResult = await handleCreateTable(doc, optSession, args.table_id, args.columns);
+              toolResult = await handleCreateTable(
+                doc,
+                optSession,
+                args.table_id,
+                args.columns,
+              );
             } else if (name === "add_columns") {
-              toolResult = await handleAddColumns(doc, optSession, args.table_id, args.columns);
+              toolResult = await handleAddColumns(
+                doc,
+                optSession,
+                args.table_id,
+                args.columns,
+              );
             } else if (name === "add_records") {
-              toolResult = await handleAddRecords(doc, optSession, args.table_id, args.records);
+              toolResult = await handleAddRecords(
+                doc,
+                optSession,
+                args.table_id,
+                args.records,
+              );
             } else if (name === "update_records") {
-              toolResult = await handleUpdateRecords(doc, optSession, args.table_id, args.records);
+              toolResult = await handleUpdateRecords(
+                doc,
+                optSession,
+                args.table_id,
+                args.records,
+              );
             } else if (name === "delete_records") {
-              toolResult = await handleDeleteRecords(doc, optSession, args.table_id, args.record_ids);
+              toolResult = await handleDeleteRecords(
+                doc,
+                optSession,
+                args.table_id,
+                args.record_ids,
+              );
             } else if (name === "set_column_style") {
-              toolResult = await handleSetColumnStyle(doc, optSession, args.table_id, args.col_id, args.style);
+              toolResult = await handleSetColumnStyle(
+                doc,
+                optSession,
+                args.table_id,
+                args.col_id,
+                args.style,
+              );
             } else if (name === "set_column_formula") {
-              toolResult = await handleSetColumnFormula(doc, optSession, args.table_id, args.col_id, args.formula);
+              toolResult = await handleSetColumnFormula(
+                doc,
+                optSession,
+                args.table_id,
+                args.col_id,
+                args.formula,
+              );
+            } else if (name === "create_view") {
+              toolResult = await handleCreateView(
+                doc,
+                optSession,
+                args.table_id,
+                args.view_name,
+                args.widget_type,
+                args.columns_mapping,
+              );
             } else if (name === "apply_actions") {
               toolResult = await doc.applyUserActions(optSession, args.actions);
             } else {
@@ -391,7 +531,10 @@ Your response should focus on generating the correct Python formula. Explain it 
 
 async function fetchMetadata(doc: AssistanceDoc, tableId: string) {
   try {
-    const res = await doc.fetchTable(makeExceptionalDocSession("system"), tableId);
+    const res = await doc.fetchTable(
+      makeExceptionalDocSession("system"),
+      tableId,
+    );
     const [, , rowIds, colValues] = res.tableData;
     const records: any[] = [];
     for (let i = 0; i < rowIds.length; i++) {
@@ -451,7 +594,12 @@ async function handleGetSchema(doc: AssistanceDoc) {
   };
 }
 
-async function handleCreateTable(doc: AssistanceDoc, session: OptDocSession, tableId: string, columns: any[]) {
+async function handleCreateTable(
+  doc: AssistanceDoc,
+  session: OptDocSession,
+  tableId: string,
+  columns: any[],
+) {
   const colSpecs = columns.map(c => ({
     id: c.id,
     type: c.type,
@@ -459,12 +607,16 @@ async function handleCreateTable(doc: AssistanceDoc, session: OptDocSession, tab
   }));
   const result = await doc.applyUserActions(session, [
     ["AddTable", tableId, colSpecs],
-    ["AddView", tableId, "raw_data", tableId],
   ]);
   return { success: true, result };
 }
 
-async function handleAddColumns(doc: AssistanceDoc, session: OptDocSession, tableId: string, columns: any[]) {
+async function handleAddColumns(
+  doc: AssistanceDoc,
+  session: OptDocSession,
+  tableId: string,
+  columns: any[],
+) {
   const actions = columns.map(c => [
     "AddColumn",
     tableId,
@@ -475,34 +627,35 @@ async function handleAddColumns(doc: AssistanceDoc, session: OptDocSession, tabl
   return { success: true, result };
 }
 
-async function handleAddRecords(doc: AssistanceDoc, session: OptDocSession, tableId: string, records: any[]) {
-  const actions = records.map(r => [
-    "AddRecord",
-    tableId,
-    null,
-    r,
-  ]);
+async function handleAddRecords(
+  doc: AssistanceDoc,
+  session: OptDocSession,
+  tableId: string,
+  records: any[],
+) {
+  const actions = records.map(r => ["AddRecord", tableId, null, r]);
   const result = await doc.applyUserActions(session, actions);
   return { success: true, result };
 }
 
-async function handleUpdateRecords(doc: AssistanceDoc, session: OptDocSession, tableId: string, records: any[]) {
-  const actions = records.map(r => [
-    "UpdateRecord",
-    tableId,
-    r.id,
-    r.fields,
-  ]);
+async function handleUpdateRecords(
+  doc: AssistanceDoc,
+  session: OptDocSession,
+  tableId: string,
+  records: any[],
+) {
+  const actions = records.map(r => ["UpdateRecord", tableId, r.id, r.fields]);
   const result = await doc.applyUserActions(session, actions);
   return { success: true, result };
 }
 
-async function handleDeleteRecords(doc: AssistanceDoc, session: OptDocSession, tableId: string, recordIds: any[]) {
-  const actions = recordIds.map(id => [
-    "RemoveRecord",
-    tableId,
-    id,
-  ]);
+async function handleDeleteRecords(
+  doc: AssistanceDoc,
+  session: OptDocSession,
+  tableId: string,
+  recordIds: any[],
+) {
+  const actions = recordIds.map(id => ["RemoveRecord", tableId, id]);
   const result = await doc.applyUserActions(session, actions);
   return { success: true, result };
 }
@@ -514,12 +667,7 @@ async function handleSetColumnFormula(
   colId: string,
   formula: string,
 ) {
-  const action = [
-    "ModifyColumn",
-    tableId,
-    colId,
-    { isFormula: true, formula },
-  ];
+  const action = ["ModifyColumn", tableId, colId, { isFormula: true, formula }];
   const result = await doc.applyUserActions(session, [action]);
   return { success: true, result };
 }
@@ -538,7 +686,9 @@ async function handleSetColumnStyle(
   }
 
   const columns = await fetchMetadata(doc, "_grist_Tables_column");
-  const targetCol = columns.find(c => c.parentId === targetTable.id && c.colId === colId);
+  const targetCol = columns.find(
+    c => c.parentId === targetTable.id && c.colId === colId,
+  );
   if (!targetCol) {
     throw new Error(`Column ${colId} not found in table ${tableId}`);
   }
@@ -566,4 +716,93 @@ async function handleSetColumnStyle(
 
   const result = await doc.applyUserActions(session, [action]);
   return { success: true, result };
+}
+
+async function handleCreateView(
+  doc: AssistanceDoc,
+  session: OptDocSession,
+  tableId: string,
+  viewName: string,
+  widgetType: string,
+  columnsMapping?: Record<string, string>,
+) {
+  const tables = await fetchMetadata(doc, "_grist_Tables");
+  const targetTable = tables.find(t => t.tableId === tableId);
+  if (!targetTable) {
+    throw new Error(`Table ${tableId} not found`);
+  }
+  const tableRef = targetTable.id;
+
+  const addViewResult = await doc.applyUserActions(session, [
+    ["AddView", tableId, "empty", viewName],
+  ]);
+  const viewRef = addViewResult.retValues[0]?.id;
+  if (!viewRef) {
+    throw new Error(`Failed to create view for table ${tableId}`);
+  }
+
+  // For calendar: use 'custom' section type so the generic CustomView renders it (no built-in
+  // widgetId override). 'custom.calendar' would use CustomCalendarView which hardcodes widgetId
+  // and triggers a widget-repo lookup that replaces the URL with an internal plugin-server URL
+  // unreachable from the browser.
+  const isCalendarWidget = widgetType === "custom.calendar";
+  const sectionType = isCalendarWidget ? "custom" : widgetType;
+
+  const sectionResult = await doc.applyUserActions(session, [
+    ["CreateViewSection", tableRef, viewRef, sectionType, null, null],
+  ]);
+  const sectionRef = sectionResult.retValues[0]?.sectionRef;
+  if (!sectionRef) {
+    throw new Error(
+      `Failed to create view section ${widgetType} for view ${viewName}`,
+    );
+  }
+
+  if (
+    columnsMapping &&
+    Object.keys(columnsMapping).length > 0 &&
+    widgetType.startsWith("custom")
+  ) {
+    const columns = await fetchMetadata(doc, "_grist_Tables_column");
+    const tableCols = columns.filter(c => c.parentId === tableRef);
+
+    const resolvedMapping: Record<string, number> = {};
+    for (const [key, colIdOrLabel] of Object.entries(columnsMapping)) {
+      let targetCol = tableCols.find(c => c.colId === colIdOrLabel);
+      if (!targetCol) {
+        targetCol = tableCols.find(c => c.label === colIdOrLabel);
+      }
+      if (targetCol) {
+        resolvedMapping[key] = targetCol.id;
+      } else {
+        log.warn(
+          `Column mapping for ${key} -> ${colIdOrLabel} could not be resolved`,
+        );
+      }
+    }
+
+    const customViewOptions: any = {
+      mode: "url",
+      url: isCalendarWidget ? "/v/latest/calendar/widgets/calendar/index.html" : null,
+      // Do NOT set widgetId/pluginId: the widget repo lookup replaces the URL with an
+      // internal plugin-server URL (http://0.0.0.0:<port>/...) unreachable from the browser.
+      widgetId: null,
+      pluginId: "",
+      access: "full",
+      renderAfterReady: isCalendarWidget ? true : false,
+      columnsMapping: resolvedMapping,
+    };
+
+    // customView must be double-encoded: the client-side jsonObservable in
+    // ViewSectionRec expects options.customView to be a JSON string (string within string).
+    const options = {
+      customView: JSON.stringify(customViewOptions),
+    };
+
+    await doc.applyUserActions(session, [
+      ["UpdateViewSection", sectionRef, { options: JSON.stringify(options) }],
+    ]);
+  }
+
+  return { success: true, viewRef, sectionRef };
 }

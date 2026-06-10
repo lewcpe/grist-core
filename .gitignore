@@ -11,6 +11,8 @@
 /docs/
 /sandbox_venv*
 /.vscode/
+/static/calendar/
+
 
 # Files created by grist-desktop setup
 /cpython.tar.gz

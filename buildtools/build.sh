@@ -31,3 +31,8 @@ webpack --config $WEBPACK_CONFIG $WEBPACK_MODE
 webpack --config buildtools/webpack.check.js $WEBPACK_MODE
 webpack --config buildtools/webpack.api.config.js $WEBPACK_MODE
 cat app/client/*.css app/client/*/*.css > static/bundle.css
+
+# Copy calendar widget files from @gristlabs/grist-widget package to static/calendar for offline access
+mkdir -p static/calendar
+cp -R node_modules/@gristlabs/grist-widget/dist/plugins/grist-bundled/archive/* static/calendar/
+
