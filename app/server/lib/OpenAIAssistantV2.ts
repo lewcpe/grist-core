@@ -350,6 +350,16 @@ Capabilities & How Grist Works:
 5. Modifying Data: You can add records, update records, and delete records in a table using their respective tools.
 6. Views & Widgets: To create a page/view or configure widgets (like adding a Calendar widget to a table,
    mapping its columns, etc.), ALWAYS use the specialized 'create_view' tool.
+7. Column References: To change a column to reference another table, use apply_actions with ModifyColumn
+   and set type to "Ref:<TableID>" with widgetOptions containing {"visibleCol": "<display_column_id>"}.
+
+SAFETY RULES:
+- NEVER use apply_actions to remove tables (RemoveTable). Ask the user to delete tables manually.
+- NEVER pass extra positional arguments to user actions. Each action must have exactly its required arguments.
+- When modifying columns, prefer the dedicated tools (set_column_formula, set_column_style) over raw apply_actions.
+- When using apply_actions for ModifyColumn, the action format is:
+  ["ModifyColumn", "table_id", "col_id", {"type": "Ref:TableName", "widgetOptions": {"visibleCol": "ColId"}}]
+- widgetOptions values must be JSON-compatible objects, not Python literals.
 
 Before answering any questions about the database structure, tables, columns, or rules, or before performing modifications on existing tables, ALWAYS call get_schema first to see the current state.`;
 
@@ -500,7 +510,37 @@ Your response should focus on generating the correct Python formula. Explain it 
                 args.columns_mapping,
               );
             } else if (name === "apply_actions") {
-              toolResult = await doc.applyUserActions(optSession, args.actions);
+              // Validate actions before applying
+              const actions: any[] = args.actions || [];
+              const dangerousActions = new Set(["RemoveTable"]);
+              const validTableActions = new Set([
+                "ModifyColumn", "RenameColumn", "AddColumn", "RemoveColumn",
+                "AddRecord", "UpdateRecord", "RemoveRecord",
+                "BulkAddRecord", "BulkUpdateRecord", "BulkRemoveRecord",
+              ]);
+              for (const action of actions) {
+                const actionName = action[0];
+                if (dangerousActions.has(actionName)) {
+                  throw new Error(
+                    `Action '${actionName}' is not allowed via the AI assistant. ` +
+                    `Please ask the user to perform this action manually.`
+                  );
+                }
+                if (actionName === "ModifyColumn" && action.length >= 4) {
+                  const colInfo = action[3];
+                  if (colInfo && typeof colInfo === "object") {
+                    // Ensure widgetOptions is a plain object, not a Python repr string
+                    if (colInfo.widgetOptions && typeof colInfo.widgetOptions === "string") {
+                      try {
+                        colInfo.widgetOptions = JSON.parse(colInfo.widgetOptions);
+                      } catch (e) {
+                        // If it's not valid JSON, leave it as-is and let the sandbox handle it
+                      }
+                    }
+                  }
+                }
+              }
+              toolResult = await doc.applyUserActions(optSession, actions);
             } else {
               toolResult = { error: `Unknown tool: ${name}` };
             }
