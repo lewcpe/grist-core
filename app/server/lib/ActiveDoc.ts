@@ -727,6 +727,14 @@ export class ActiveDoc extends EventEmitter {
     };
   }
 
+  public async *getAssistanceStream(docSession: OptDocSession, params: any): AsyncGenerator<any> {
+    const assistant = this._server.getAssistant();
+    if (!assistant || !isAssistantV2(assistant) || !assistant.getAssistanceStream) {
+      throw new Error("Streaming not supported by this assistant");
+    }
+    yield* assistant.getAssistanceStream(docSession, this, params);
+  }
+
   /**
    * Shut down the ActiveDoc, and remove it from the DocManager. An optional
    * afterShutdown operation can be provided, which will be run once the ActiveDoc

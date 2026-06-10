@@ -1,4 +1,5 @@
 import { AssistanceResponseV2 } from "app/common/Assistance";
+import { AssistanceState } from "app/common/Assistance";
 import { AssistantProvider } from "app/common/Assistant";
 import { getProviderFromHostname } from "app/server/lib/Assistant";
 import {
@@ -14,6 +15,12 @@ import log from "app/server/lib/log";
 import { agents } from "app/server/lib/ProxyAgent";
 
 import fetch from "node-fetch";
+
+export type StreamingEvent =
+  | { type: "text"; content: string }
+  | { type: "tool_start"; name: string; arguments: any }
+  | { type: "tool_end"; name: string; result: any }
+  | { type: "done"; state: AssistanceState };
 
 const TOOLS_DEFINITION = [
   {
@@ -561,6 +568,283 @@ Your response should focus on generating the correct Python formula. Explain it 
       reply,
       state: { messages },
     };
+  }
+
+  public async *getAssistanceStream(
+    optSession: OptDocSession,
+    doc: AssistanceDoc,
+    request: any,
+  ): AsyncGenerator<StreamingEvent> {
+    const messages: any[] = [...(request.state?.messages || [])];
+    const userText = request.text;
+
+    const apiKey = request.apiKey || this._apiKey;
+    const model = request.model || this._model;
+    let endpoint = this._endpoint;
+    if (request.baseUrl) {
+      endpoint = request.baseUrl;
+      if (
+        !endpoint.endsWith("/chat/completions") &&
+        !endpoint.endsWith("/completions")
+      ) {
+        endpoint = endpoint.replace(/\/+$/, "") + "/chat/completions";
+      }
+    }
+
+    if (!apiKey && endpoint.includes("api.openai.com")) {
+      throw new Error("API Key is required to connect to OpenAI.");
+    }
+
+    // Initialize system prompt if needed
+    if (messages.length === 0 || !messages.some(m => m.role === "system")) {
+      let systemPrompt = `You are a helpful AI Assistant for Grist, a modern collaborative spreadsheet database.
+You help users build tables, structure databases, format/style columns, write python formulas, explain access rules, and modify/query document data.
+Strictly enforce scoping: all operations you execute will apply ONLY to the current document. You cannot access or modify other documents or workspaces outside of this document.
+
+Capabilities & How Grist Works:
+1. Formulas: Grist uses Python for formulas. You can set column-wide formulas using set_column_formula.
+2. Styling: You can format column values, set text/fill colors, bold/italic, alignment using set_column_style.
+3. Access Rules: You can inspect access rules via get_schema. Explain them clearly if asked.
+4. Tables: You can create a new table with columns using create_table. It will automatically add a view page for it.
+5. Modifying Data: You can add records, update records, and delete records in a table using their respective tools.
+6. Views & Widgets: To create a page/view or configure widgets (like adding a Calendar widget to a table,
+   mapping its columns, etc.), ALWAYS use the specialized 'create_view' tool.
+7. Column References: To change a column to reference another table, use apply_actions with ModifyColumn
+   and set type to "Ref:<TableID>" with widgetOptions containing {"visibleCol": "<display_column_id>"}.
+
+SAFETY RULES:
+- NEVER use apply_actions to remove tables (RemoveTable). Ask the user to delete tables manually.
+- NEVER pass extra positional arguments to user actions. Each action must have exactly its required arguments.
+- When modifying columns, prefer the dedicated tools (set_column_formula, set_column_style) over raw apply_actions.
+- When using apply_actions for ModifyColumn, the action format is:
+  ["ModifyColumn", "table_id", "col_id", {"type": "Ref:TableName", "widgetOptions": {"visibleCol": "ColId"}}]
+- widgetOptions values must be JSON-compatible objects, not Python literals.
+
+Before answering any questions about the database structure, tables, columns, or rules, or before performing modifications on existing tables, ALWAYS call get_schema first to see the current state.`;
+
+      if (request.context?.tableId && request.context.colId) {
+        systemPrompt += `\n\nCURRENT CONTEXT: You are currently helping write a Python formula for the column '${request.context.colId}' in table '${request.context.tableId}'.
+Your response should focus on generating the correct Python formula. Explain it clearly and use the set_column_formula tool if the user requests applying it, or explain the formula body.`;
+      }
+
+      messages.unshift({
+        role: "system",
+        content: systemPrompt,
+      });
+    }
+
+    if (userText) {
+      messages.push({
+        role: "user",
+        content: userText,
+      });
+    }
+
+    let loopCount = 0;
+
+    while (loopCount < 5) {
+      loopCount++;
+
+      const payload = {
+        model,
+        messages,
+        temperature: 0,
+        tools: TOOLS_DEFINITION,
+        tool_choice: "auto",
+        stream: true,
+      };
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          ...(apiKey ?
+            {
+              "Authorization": `Bearer ${apiKey}`,
+              "api-key": apiKey,
+            } :
+            {}),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+        ...(agents.trusted ? { agent: agents.trusted } as any : {}),
+      });
+
+      if (res.status !== 200) {
+        const errorText = await res.text();
+        throw new Error(
+          `OpenAI API returned status ${res.status}: ${errorText}`,
+        );
+      }
+
+      const reader = res.body;
+      if (!reader) {
+        throw new Error("No response body for streaming");
+      }
+
+      let assistantContent = "";
+      const toolCalls: Map<number, { id: string; name: string; arguments: string }> = new Map();
+      let buffer = "";
+
+      // Process SSE stream
+      const decoder = new TextDecoder();
+      for await (const chunk of reader as any) {
+        buffer += decoder.decode(chunk, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            const delta = parsed.choices?.[0]?.delta;
+            if (!delta) continue;
+
+            // Stream text content
+            if (delta.content) {
+              assistantContent += delta.content;
+              yield { type: "text", content: delta.content };
+            }
+
+            // Accumulate tool calls
+            if (delta.tool_calls) {
+              for (const tc of delta.tool_calls) {
+                const idx = tc.index ?? 0;
+                if (!toolCalls.has(idx)) {
+                  toolCalls.set(idx, { id: tc.id || "", name: "", arguments: "" });
+                }
+                const existing = toolCalls.get(idx)!;
+                if (tc.id) existing.id = tc.id;
+                if (tc.function?.name) existing.name = tc.function.name;
+                if (tc.function?.arguments) existing.arguments += tc.function.arguments;
+              }
+            }
+
+            // Check for finish reason
+            const finishReason = parsed.choices?.[0]?.finish_reason;
+            if (finishReason === "tool_calls" || finishReason === "stop") {
+              break;
+            }
+          } catch (e) {
+            // Skip malformed JSON lines
+          }
+        }
+      }
+
+      // Build the assistant message for history
+      const assistantMessage: any = { role: "assistant" };
+      if (assistantContent) {
+        assistantMessage.content = assistantContent;
+      }
+
+      if (toolCalls.size > 0) {
+        assistantMessage.tool_calls = [];
+        for (const [, tc] of toolCalls) {
+          assistantMessage.tool_calls.push({
+            id: tc.id,
+            type: "function",
+            function: { name: tc.name, arguments: tc.arguments },
+          });
+        }
+        messages.push(assistantMessage);
+
+        // Execute tools
+        for (const [, tc] of toolCalls) {
+          let args: any = {};
+          try {
+            args = JSON.parse(tc.arguments);
+          } catch (e) {
+            log.error(`Failed to parse tool call arguments: ${tc.arguments}`);
+          }
+
+          yield { type: "tool_start", name: tc.name, arguments: args };
+
+          let toolResult: any;
+          try {
+            log.info(`Assistant V2 stream calling tool: ${tc.name}`, args);
+            toolResult = await this._executeTool(tc.name, args, doc, optSession);
+          } catch (e: any) {
+            log.error(`Tool execution error: ${e.message || e}`);
+            toolResult = { error: e.message || String(e) };
+          }
+
+          yield { type: "tool_end", name: tc.name, result: toolResult };
+
+          messages.push({
+            role: "tool",
+            tool_call_id: tc.id,
+            name: tc.name,
+            content: JSON.stringify(toolResult),
+          });
+        }
+
+        // Continue the loop for the next iteration
+        assistantContent = "";
+        toolCalls.clear();
+      } else {
+        // No tool calls, we have the final reply
+        messages.push(assistantMessage);
+        break;
+      }
+    }
+
+    yield { type: "done", state: { messages } };
+  }
+
+  private async _executeTool(
+    name: string,
+    args: any,
+    doc: AssistanceDoc,
+    optSession: OptDocSession,
+  ): Promise<any> {
+    if (name === "get_schema") {
+      return await handleGetSchema(doc);
+    } else if (name === "create_table") {
+      return await handleCreateTable(doc, optSession, args.table_id, args.columns);
+    } else if (name === "add_columns") {
+      return await handleAddColumns(doc, optSession, args.table_id, args.columns);
+    } else if (name === "add_records") {
+      return await handleAddRecords(doc, optSession, args.table_id, args.records);
+    } else if (name === "update_records") {
+      return await handleUpdateRecords(doc, optSession, args.table_id, args.records);
+    } else if (name === "delete_records") {
+      return await handleDeleteRecords(doc, optSession, args.table_id, args.record_ids);
+    } else if (name === "set_column_style") {
+      return await handleSetColumnStyle(doc, optSession, args.table_id, args.col_id, args.style);
+    } else if (name === "set_column_formula") {
+      return await handleSetColumnFormula(doc, optSession, args.table_id, args.col_id, args.formula);
+    } else if (name === "create_view") {
+      return await handleCreateView(doc, optSession, args.table_id, args.view_name, args.widget_type, args.columns_mapping);
+    } else if (name === "apply_actions") {
+      const actions: any[] = args.actions || [];
+      const dangerousActions = new Set(["RemoveTable"]);
+      for (const action of actions) {
+        const actionName = action[0];
+        if (dangerousActions.has(actionName)) {
+          throw new Error(
+            `Action '${actionName}' is not allowed via the AI assistant. ` +
+            `Please ask the user to perform this action manually.`
+          );
+        }
+        if (actionName === "ModifyColumn" && action.length >= 4) {
+          const colInfo = action[3];
+          if (colInfo && typeof colInfo === "object") {
+            if (colInfo.widgetOptions && typeof colInfo.widgetOptions === "string") {
+              try {
+                colInfo.widgetOptions = JSON.parse(colInfo.widgetOptions);
+              } catch (e) {
+                // leave as-is
+              }
+            }
+          }
+        }
+      }
+      return await doc.applyUserActions(optSession, actions);
+    } else {
+      return { error: `Unknown tool: ${name}` };
+    }
   }
 }
 

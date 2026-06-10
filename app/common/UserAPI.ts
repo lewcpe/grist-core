@@ -667,6 +667,7 @@ export interface DocAPI {
   getTriggerMonitor(): Promise<TriggerMonitorResponse>;
 
   getAssistance(params: AssistanceRequest): Promise<AssistanceResponse>;
+  getAssistanceStream(params: AssistanceRequest): AsyncGenerator<any>;
   /**
    * Check if the document is currently in timing mode.
    * Status is either
@@ -712,6 +713,9 @@ export interface DocAPI {
   applyProposal(proposalId: number): Promise<Proposal>;
 
   applyUserActions(actions: UserAction[]): Promise<ApplyUAResult>;
+
+  getAssistance(params: AssistanceRequest): Promise<AssistanceResponse>;
+  getAssistanceStream(params: AssistanceRequest): AsyncGenerator<any>;
 }
 
 // Operations that are supported by a doc worker.
@@ -1472,6 +1476,54 @@ export class DocAPIImpl extends BaseAPI implements DocAPI {
       method: "POST",
       body: JSON.stringify(params),
     });
+  }
+
+  public async *getAssistanceStream(
+    params: AssistanceRequest,
+  ): AsyncGenerator<any> {
+    const url = `${this._url}/assistant/stream`;
+    const resp = await this.fetch(url, {
+      method: "POST",
+      body: JSON.stringify(params),
+      headers: { ...this.defaultHeaders() },
+      credentials: "include",
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Assistant stream error ${resp.status}: ${text}`);
+    }
+
+    const reader = resp.body?.getReader();
+    if (!reader) {
+      throw new Error("No response body");
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              yield JSON.parse(line.slice(6));
+            } catch (e) {
+              // skip malformed
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
   }
 
   public async timing(): Promise<TimingStatus> {

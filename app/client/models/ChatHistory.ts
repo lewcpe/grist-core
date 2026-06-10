@@ -48,6 +48,10 @@ export interface ChatMessage {
    * Detailed agentic execution steps for Assistant V2.
    */
   agenticLogs?: AgenticLog[];
+  /**
+   * Whether this message is currently being streamed.
+   */
+  streaming?: boolean;
 }
 
 export interface AgenticLog {

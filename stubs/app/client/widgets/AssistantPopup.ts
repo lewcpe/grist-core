@@ -1,5 +1,5 @@
 import { GristDoc } from "app/client/components/GristDoc";
-import { ChatHistory } from "app/client/models/ChatHistory";
+import { AgenticLog, ChatHistory } from "app/client/models/ChatHistory";
 import { IAssistantPopup } from "app/client/ui/IAssistantPopup";
 import {
   cssLinkText,
@@ -22,8 +22,10 @@ export class AssistantPopup extends Disposable implements IAssistantPopup {
   private _gristDoc: GristDoc;
   private _history = Observable.create<ChatHistory>(this, { messages: [] });
   private _isOpen = Observable.create(this, false);
+  private _isMinimized = Observable.create(this, false);
   private _chat: Assistant;
   private _dom: HTMLElement | null = null;
+  private _fabDom: HTMLElement | null = null;
   private _showSettings = Observable.create(this, false);
 
   // Inputs for Settings
@@ -60,15 +62,19 @@ export class AssistantPopup extends Disposable implements IAssistantPopup {
     });
 
     this._dom = this._buildDom();
+    this._fabDom = this._buildFab();
     document.body.appendChild(this._dom);
+    document.body.appendChild(this._fabDom);
 
     this.onDispose(() => {
       this._dom?.parentNode?.removeChild(this._dom);
+      this._fabDom?.parentNode?.removeChild(this._fabDom);
     });
   }
 
   public open() {
     this._isOpen.set(true);
+    this._isMinimized.set(false);
     setTimeout(() => this._chat.focus(), 50);
   }
 
@@ -76,13 +82,23 @@ export class AssistantPopup extends Disposable implements IAssistantPopup {
     const prompt = state.prompt;
     if (prompt) {
       this._isOpen.set(true);
+      this._isMinimized.set(false);
       this._chat.send(prompt).catch(reportError);
     }
   }
 
+  private _minimize() {
+    this._isMinimized.set(true);
+  }
+
+  private _restore() {
+    this._isMinimized.set(false);
+    setTimeout(() => this._chat.focus(), 50);
+  }
+
   private _buildDom() {
     return cssPopupContainer(
-      dom.show(this._isOpen),
+      dom.show(use => use(this._isOpen) && !use(this._isMinimized)),
       testId("container"),
       cssPopupHeader(
         cssHeaderTitle(
@@ -101,6 +117,12 @@ export class AssistantPopup extends Disposable implements IAssistantPopup {
             icon("Settings"),
             dom.on("click", () => this._showSettings.set(!this._showSettings.get())),
             testId("settings-toggle"),
+          ),
+          cssMinimizeButton(
+            icon("Minimize"),
+            dom.on("click", () => this._minimize()),
+            testId("minimize"),
+            dom.attr("title", "Minimize"),
           ),
           cssCloseButton(
             icon("CrossBig"),
@@ -163,12 +185,28 @@ export class AssistantPopup extends Disposable implements IAssistantPopup {
     localStorage.removeItem(storageKey);
   }
 
+  private _buildFab() {
+    return cssFab(
+      dom.show(use => use(this._isOpen) && use(this._isMinimized)),
+      dom.on("click", () => this._restore()),
+      cssFabIcon("Sparks"),
+      cssFabBadge(
+        dom.show(use => {
+          const msgs = use(this._history).messages;
+          return msgs.length > 0 && msgs[msgs.length - 1]?.sender === "ai";
+        }),
+      ),
+      testId("fab"),
+      dom.attr("title", "Restore AI Assistant"),
+    );
+  }
+
   private async _sendMessage(message: string) {
     const model = this._modelInput.get() || undefined;
     const baseUrl = this._baseUrlInput.get() || undefined;
     const apiKey = this._apiKeyInput.get() || undefined;
 
-    return await this._gristDoc.docComm.getAssistance({
+    const params = {
       conversationId: this._chat.conversationId,
       context: {},
       text: message,
@@ -176,7 +214,58 @@ export class AssistantPopup extends Disposable implements IAssistantPopup {
       model,
       baseUrl,
       apiKey,
-    } as any);
+    } as any;
+
+    // Try streaming first
+    try {
+      const docApi = this._gristDoc.docApi;
+      const stream = docApi.getAssistanceStream(params);
+      let fullReply = "";
+      const agenticLogs: AgenticLog[] = [];
+      let finalState: any = undefined;
+
+      // Start a streaming message in the UI
+      this._chat.startStreamingMessage();
+
+      for await (const event of stream) {
+        if (event.type === "text") {
+          fullReply += event.content;
+          this._chat.updateStreamingMessage(event.content);
+        } else if (event.type === "tool_start") {
+          agenticLogs.push({
+            toolName: event.name,
+            arguments: event.arguments,
+            success: true,
+          });
+        } else if (event.type === "tool_end") {
+          const log = agenticLogs.find(l => l.toolName === event.name && l.success === true && !l.details);
+          if (log) {
+            log.success = !event.result?.error;
+            log.error = event.result?.error;
+            log.details = event.result;
+          }
+        } else if (event.type === "done") {
+          finalState = event.state;
+        } else if (event.type === "error") {
+          throw new Error(event.error);
+        }
+      }
+
+      // Finalize the streaming message
+      this._chat.finalizeStreamingMessage(agenticLogs.length > 0 ? agenticLogs : undefined);
+
+      // Update history state
+      if (finalState) {
+        this._history.set({ ...this._history.get(), state: finalState });
+      }
+
+      // Return a fake response for compatibility
+      return { reply: fullReply, state: finalState };
+    } catch (e) {
+      // If streaming fails, fall back to non-streaming
+      console.warn("Streaming failed, falling back to non-streaming:", e);
+      return await this._gristDoc.docComm.getAssistance(params);
+    }
   }
 
   private _buildIntroMessage(...args: DomElementArg[]) {
@@ -291,6 +380,9 @@ const cssSettingsButton = styled("button", `
 const cssCloseButton = styled(cssSettingsButton, `
 `);
 
+const cssMinimizeButton = styled(cssSettingsButton, `
+`);
+
 const cssClearButton = styled(cssSettingsButton, `
 `);
 
@@ -369,4 +461,47 @@ const cssAiIntroMessage = styled(cssAiMessage, `
 
 const cssAiMessageParagraph = styled("div", `
   margin-bottom: 8px;
+`);
+
+const cssFab = styled("div", `
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: ${theme.controlPrimaryBg};
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+`);
+
+const cssFabIcon = styled(icon, `
+  width: 28px;
+  height: 28px;
+  --icon-color: white;
+`);
+
+const cssFabBadge = styled("div", `
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: #2bab6e;
+  border: 2px solid ${theme.pageBg};
 `);

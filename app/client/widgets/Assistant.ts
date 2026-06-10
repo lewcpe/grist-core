@@ -169,6 +169,18 @@ export class Assistant extends Disposable {
     this._conversation.scrollDown(options);
   }
 
+  public startStreamingMessage() {
+    this._conversation.startStreamingMessage();
+  }
+
+  public updateStreamingMessage(chunk: string) {
+    this._conversation.updateStreamingMessage(chunk);
+  }
+
+  public finalizeStreamingMessage(agenticLogs?: AgenticLog[]) {
+    this._conversation.finalizeStreamingMessage(agenticLogs);
+  }
+
   public get conversationId() {
     return this._conversation.id.get();
   }
@@ -582,6 +594,38 @@ class AssistantConversation extends Disposable {
     this.scrollDown();
   }
 
+  public startStreamingMessage() {
+    this.thinking.set(true);
+    const entry: ChatMessage = { message: "", sender: "ai", streaming: true };
+    this.allMessages.push(entry);
+    this.newMessages.push(entry);
+    this.scrollDown();
+  }
+
+  public updateStreamingMessage(chunk: string) {
+    const msgs = this.allMessages.get();
+    const last = msgs[msgs.length - 1];
+    if (last && last.streaming) {
+      last.message += chunk;
+      this.allMessages.splice(msgs.length - 1, 1, { ...last });
+    }
+    this.scrollDown();
+  }
+
+  public finalizeStreamingMessage(agenticLogs?: AgenticLog[]) {
+    const msgs = this.allMessages.get();
+    const last = msgs[msgs.length - 1];
+    if (last && last.streaming) {
+      last.streaming = false;
+      if (agenticLogs && agenticLogs.length > 0) {
+        last.agenticLogs = agenticLogs;
+      }
+      this.allMessages.splice(msgs.length - 1, 1, { ...last });
+    }
+    this.thinking.set(false);
+    this.scrollDown();
+  }
+
   public addQuestion(message: string) {
     this.thinking.set(false);
     const entry: ChatMessage = { message, sender: "user" };
@@ -642,11 +686,17 @@ class AssistantConversation extends Disposable {
               return dom("div",
                 cssAiMessage(
                   cssAvatar(cssAiImage()),
-                  this._render(
-                    entry.message,
-                    testId("message-ai"),
-                    testId("message"),
-                  ),
+                  entry.streaming ?
+                    cssStreamingMessage(
+                      dom.text(entry.message),
+                      testId("message-ai"),
+                      testId("message"),
+                    ) :
+                    this._render(
+                      entry.message,
+                      testId("message-ai"),
+                      testId("message"),
+                    ),
                 ),
                 entry.agenticLogs && entry.agenticLogs.length > 0 ?
                   this._renderAgenticLogs(entry.agenticLogs) : null,
@@ -979,6 +1029,25 @@ const cssMessage = styled("div", `
   grid-template-columns: 1fr 60px;
   border-top: 1px solid ${theme.formulaAssistantBorder};
   padding: 20px 0px 20px 20px;
+  user-select: text;
+  cursor: text;
+`);
+
+const cssStreamingMessage = styled("div", `
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 1em;
+
+  &::after {
+    content: '▊';
+    animation: blink 0.8s infinite;
+    color: ${theme.accentText};
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
 `);
 
 export const cssAiMessage = styled("div", `
@@ -989,6 +1058,8 @@ export const cssAiMessage = styled("div", `
   padding: 20px 20px 20px 0px;
   white-space: normal;
   word-break: break-word;
+  user-select: text;
+  cursor: text;
 
   & h1, & h2, & h3, & h4, & h5, & h6 {
     margin-top: 24px;

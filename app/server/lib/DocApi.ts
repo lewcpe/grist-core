@@ -1284,6 +1284,32 @@ export class DocWorkerApi {
     );
 
     /**
+     * Streaming version of the assistant endpoint. Returns Server-Sent Events (SSE).
+     */
+    this._app.post("/api/docs/:docId/assistant/stream", canView, withDoc(async (activeDoc, req, res) => {
+      const docSession = docSessionFromRequest(req);
+      const request = req.body;
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+      res.flushHeaders();
+
+      try {
+        const stream = activeDoc.getAssistanceStream(docSession, request);
+        for await (const event of stream) {
+          res.write(`data: ${JSON.stringify(event)}\n\n`);
+        }
+      } catch (e: any) {
+        log.error("Assistant stream error:", e);
+        res.write(`data: ${JSON.stringify({ type: "error", error: e.message })}\n\n`);
+      } finally {
+        res.end();
+      }
+    }),
+    );
+
+    /**
      * Create a document.
      *
      * When an upload is included, it is imported as the initial state of the document.
