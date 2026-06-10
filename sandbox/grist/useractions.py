@@ -1761,6 +1761,11 @@ class UserActions(object):
     col = self._docmodel.get_column_rec(table_id, col_id)
 
     update_values = {k: v for k, v in col_info.items() if k not in _unmodifiable_col_fields}
+    # Serialize dict/list values to JSON strings. Without this, Python's str() produces
+    # single-quoted repr (e.g. "{'key': 'val'}") which breaks client-side JSON.parse.
+    for k, v in update_values.items():
+      if isinstance(v, (dict, list)):
+        update_values[k] = json.dumps(v)
     if '_position' in col_info:
       update_values['parentPos'] = col_info['_position']
     self._docmodel.update([col], **update_values)
