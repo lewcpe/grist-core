@@ -513,11 +513,6 @@ Your response should focus on generating the correct Python formula. Explain it 
               // Validate actions before applying
               const actions: any[] = args.actions || [];
               const dangerousActions = new Set(["RemoveTable"]);
-              const validTableActions = new Set([
-                "ModifyColumn", "RenameColumn", "AddColumn", "RemoveColumn",
-                "AddRecord", "UpdateRecord", "RemoveRecord",
-                "BulkAddRecord", "BulkUpdateRecord", "BulkRemoveRecord",
-              ]);
               for (const action of actions) {
                 const actionName = action[0];
                 if (dangerousActions.has(actionName)) {
