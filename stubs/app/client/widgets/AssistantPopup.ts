@@ -259,8 +259,8 @@ export class AssistantPopup extends Disposable implements IAssistantPopup {
         this._history.set({ ...this._history.get(), state: finalState });
       }
 
-      // Return a fake response for compatibility
-      return { reply: fullReply, state: finalState };
+      // Return null since streaming already handled the message display.
+      return null as any;
     } catch (e) {
       // If streaming fails, fall back to non-streaming
       console.warn("Streaming failed, falling back to non-streaming:", e);

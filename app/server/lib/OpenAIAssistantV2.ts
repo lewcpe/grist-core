@@ -287,7 +287,11 @@ const TOOLS_DEFINITION = [
         properties: {
           actions: {
             type: "array",
-            items: { type: "array", description: "A Grist action tuple" },
+            description: "List of Grist action tuples, e.g. [[\"AddRecord\", \"Table1\", null, {\"Name\": \"Foo\"}]]",
+            items: {
+              type: "array",
+              items: {},
+            },
           },
         },
         required: ["actions"],

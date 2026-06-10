@@ -57,7 +57,7 @@ interface AssistantOptions {
   history: Observable<ChatHistory>;
   gristDoc: GristDoc;
   parentHeightPx?: Observable<number>;
-  onSend(message: string): Promise<AssistanceResponse>;
+  onSend(message: string): Promise<AssistanceResponse | null>;
   buildIntroMessage(...args: DomElementArg[]): DomContents;
   /**
    * Only used by version 1 of the AI assistant (`FormulaAssistant`).
@@ -115,7 +115,7 @@ export class Assistant extends Disposable {
 
   /** Number of remaining credits. If null, assistant usage is unlimited. */
   private _numRemainingCredits = Observable.create<number | null>(this, null);
-  private _lastSendPromise: Promise<AssistanceResponse> | null = null;
+  private _lastSendPromise: Promise<AssistanceResponse | null> | null = null;
 
   constructor(private _options: AssistantOptions) {
     super();
@@ -452,7 +452,10 @@ export class Assistant extends Disposable {
         return;
       }
 
-      this._addResponse(response);
+      // If response is null, streaming already handled the message display.
+      if (response) {
+        this._addResponse(response);
+      }
     } catch (err: unknown) {
       if (this.isDisposed() || this._lastSendPromise !== sendPromise) {
         return;
